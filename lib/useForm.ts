@@ -1,69 +1,81 @@
 import { useCreation } from 'ahooks'
 import Joi from 'joi'
 import { proxy, useSnapshot } from 'valtio'
-import { derive } from 'valtio/utils'
+import { createContext, useContext } from 'react'
 import {
+  FormRegister,
+  IFormErrors,
   IUseFormOptions,
   IUseFormReturn,
-  IFormErrors,
+  IUseFormReturnEX,
   RegisterFactoryProps,
-  FormRegister,
+  State,
 } from './types'
 
-export function useProxyForm<T extends object>(
+const formContext = createContext(null)
+
+export function useProxyForm<T extends State>(
   options?: IUseFormOptions<T>
-): IUseFormReturn<T> {
-  const option = useCreation(() => options, [])
+): IUseFormReturnEX<T> {
+  //WARN: 鉴于obj一定不会是旧的,有可能会导致错误的重新渲染.
+  //有时间调查一下,是否可以改进
+  const option = useCreation(() => options, [options])
   //定义Proxy
   const state = useCreation(
     () => proxy<T>(options?.initState ?? ({} as T)),
     [option]
   )
   const errors = useCreation(() => proxy<IFormErrors<T>>({}), [])
-  const scheme = useCreation(() => options.validateScheme ?? Joi.object(), [])
-
-  const result = useCreation(
-    () =>
-      derive({
-        formState: get => get(state),
-        errors: get => get(errors),
-        register: get =>
-          registerFactory({
-            formState: get(state),
-            errors: get(errors),
-            scheme: get(scheme),
-          }),
-        isValid: get => Object.keys(get(errors)).length === 0,
-        //submit 
-        submit: get => () => {
-          if (options?.onSubmit) {
-            options.onSubmit(get(state))
-          }
-        },
-      }),
+  const scheme = useCreation(
+    () => options?.validateScheme ?? Joi.object(),
     [option]
   )
+
+  const result = useCreation(
+    () => ({
+      formState: state,
+      errors: errors,
+      register: registerFactory({
+        formState: state,
+        errors: errors,
+        scheme: scheme,
+      }),
+      FormContext: formContext as unknown as React.Context<IUseFormReturn<T>>,
+      isValid: Object.keys(errors).length === 0,
+      //submit
+      submit: () => {
+        if (options?.onSubmit) {
+          options.onSubmit(state)
+        }
+      },
+    }),
+    [option]
+  ) as IUseFormReturnEX<T>
+
   return result
 }
 
 //register factory
-function registerFactory<T extends object>(
+function registerFactory<T extends State>(
   props: RegisterFactoryProps<T>
 ): FormRegister<T> {
   const { formState, errors, scheme } = props
-  const state = useSnapshot<T>(formState)
   return (label, options) => {
+    const state = useSnapshot(formState)
     const key = label as keyof T
+
+    //初始化state
+    if (formState[key] === undefined) {
+      //@ts-ignore
+      formState[key] = ''
+    }
     return {
       get value() {
-        if (formState[key] === undefined) {
-          //如果没有设置初始值，则返回空字符串
-          //提前赋值,防止出现非受控组件
-          formState[key as string] = ''
-        }
-        return formState[key]
+        //给一个初始化值,防止uncontroll
+        //@ts-ignore
+        return state[key] || ''
       },
-      onChange: e => {
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
         let val: any = e.target.value
         //输入过滤,注意这是对value的直接过滤,不是对scheme的过滤
         //如果是true,会阻止更新input的value
@@ -73,22 +85,28 @@ function registerFactory<T extends object>(
 
         //用scheme做自动类型转换
         //警告: 当scheme为 number 的时候,会有意外的数字去0问题,需要在scheme中自行处理
-        const res = scheme.validate({ [label]: val })
+        const res = scheme.validate(
+          { [label]: val },
+          {
+            abortEarly: false,
+          }
+        )
 
-        val = res.value[key]
-        errors[key] = res.error?.message
+        val = res.value![key]
 
-        //@ts-ignore
-        state[label] = val
+        //handle error message
+        const error = res.error?.details?.find(item => item.path[0] === key)
+
+        if (error) console.log(error)
+
+        errors[key] = error?.message
+        formState[label] = val
       },
     }
   }
 }
 
-const { register } = useProxyForm({
-  initState: {
-    //a:''
-  },
-})
-
-register('sa')
+export function useFormContext<T extends State>() {
+  //@ts-ignore
+  return useContext<IUseFormReturn<T>>(formContext)
+}
