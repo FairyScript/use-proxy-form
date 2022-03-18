@@ -6,7 +6,7 @@ export interface State {
   [label: string]: string | number | boolean
 }
 
-export interface IUseFormOptions<T extends State> {
+export interface IUseFormOptions<T> {
   initState?: T
   //joi scheme
   validateScheme?: Joi.ObjectSchema<T>
@@ -45,5 +45,5 @@ export type FormRegister<T> = (
 
 export interface FormRegisterReturn {
   value: any
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => never
 }

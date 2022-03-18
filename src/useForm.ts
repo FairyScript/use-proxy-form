@@ -14,7 +14,7 @@ import {
 
 const formContext = createContext(null)
 
-export function useProxyForm<T extends State>(
+export function useProxyForm<T extends {}>(
   options?: IUseFormOptions<T>
 ): IUseFormReturnEX<T> {
   //WARN: 鉴于obj一定不会是旧的,有可能会导致错误的重新渲染.
@@ -56,7 +56,7 @@ export function useProxyForm<T extends State>(
 }
 
 //register factory
-function registerFactory<T extends State>(
+function registerFactory<T extends {}>(
   props: RegisterFactoryProps<T>
 ): FormRegister<T> {
   const { formState, errors, scheme } = props
@@ -100,13 +100,14 @@ function registerFactory<T extends State>(
         if (error) console.log(error)
 
         errors[key] = error?.message
+        //@ts-ignore
         formState[label] = val
       },
     }
   }
 }
 
-export function useFormContext<T extends State>() {
+export function useFormContext<T>() {
   //@ts-ignore
   return useContext<IUseFormReturn<T>>(formContext)
 }

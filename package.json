@@ -11,6 +11,7 @@
   ],
   "main": "./dist/use-proxy-form.umd.js",
   "module": "./dist/use-proxy-form.es.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/use-proxy-form.es.js",
