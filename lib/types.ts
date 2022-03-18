@@ -1,13 +1,19 @@
 import Joi from 'joi'
+import React from 'react'
 
-declare interface IUseFormOptions<T> {
+export interface State {
+  //boolean真的可以吗,存疑
+  [label: string]: string | number | boolean
+}
+
+export interface IUseFormOptions<T extends State> {
   initState?: T
   //joi scheme
   validateScheme?: Joi.ObjectSchema<T>
   onSubmit?: (state: T) => void
 }
 
-declare interface IUseFormReturn<T> {
+export interface IUseFormReturn<T> {
   formState: T
   errors: IFormErrors<T>
   register: FormRegister<T>
@@ -15,26 +21,29 @@ declare interface IUseFormReturn<T> {
   submit: () => void
 }
 
-declare interface RegisterFactoryProps<T> {
+export interface IUseFormReturnEX<T> extends IUseFormReturn<T> {
+  FormContext: React.Context<IUseFormReturn<T>>
+}
+export interface RegisterFactoryProps<T> {
   formState: T
   errors: IFormErrors<T>
   scheme: Joi.ObjectSchema<T>
 }
 
-declare interface IFormRegisterOptions {
+export interface IFormRegisterOptions {
   condition?: (value: string) => boolean
 }
 
-declare type IFormErrors<T> = {
+export type IFormErrors<T> = {
   [key in keyof T]?: string
 }
 
-declare type FormRegister<T> = (
+export type FormRegister<T> = (
   label: keyof T extends never ? string : keyof T,
   options?: IFormRegisterOptions
 ) => void
 
-declare interface FormRegisterReturn {
+export interface FormRegisterReturn {
   value: any
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
