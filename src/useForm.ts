@@ -79,7 +79,8 @@ function registerFactory<T extends {}>(
         let val: any = e.target.value
         //输入过滤,注意这是对value的直接过滤,不是对scheme的过滤
         //如果是true,会阻止更新input的value
-        if (options?.condition && !options.condition(val)) {
+        //value 为空直接跳过
+        if (options?.condition && val !== '' && !options.condition(val)) {
           return
         }
 
