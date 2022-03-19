@@ -9,7 +9,6 @@ import {
   IUseFormOptions,
   IUseFormReturn,
   RegisterFactoryProps,
-  State,
 } from './types'
 
 const formContext = createContext(null)
@@ -36,7 +35,7 @@ export function useProxyForm<T extends {}>(
         isDirty: false,
       },
       {
-        isValid: snap => Object.keys(snap.errors).length === 0,
+        isValid: snap => Object.values(snap.errors).filter(Boolean).length === 0,
       }
     )
 
