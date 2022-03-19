@@ -8,7 +8,6 @@ import {
   IFormErrors,
   IUseFormOptions,
   IUseFormReturn,
-  IUseFormReturnEX,
   RegisterFactoryProps,
   State,
 } from './types'
@@ -17,7 +16,7 @@ const formContext = createContext(null)
 
 export function useProxyForm<T extends {}>(
   options?: IUseFormOptions<T>
-): IUseFormReturnEX<T> {
+): IUseFormReturn<T> {
   //WARN: 鉴于obj一定不会是旧的,有可能会导致错误的重新渲染.
   //有时间调查一下,是否可以改进
   const option = useCreation(() => options, [options])
@@ -34,6 +33,7 @@ export function useProxyForm<T extends {}>(
         FormContext: ref(formContext) as unknown as React.Context<
           IUseFormReturn<T>
         >,
+        isDirty: false,
       },
       {
         isValid: snap => Object.keys(snap.errors).length === 0,
@@ -44,16 +44,19 @@ export function useProxyForm<T extends {}>(
       {
         register: get =>
           registerFactory<T>({
-            formState: get(_s1.formState),
-            errors: get(_s1.errors),
+            state: _s1,
             scheme,
+            showErrors: option?.showErrors ?? false,
           }),
-        submit: get => {
-          return () => {
-            if (option?.onSubmit) {
-              option.onSubmit(get(_s1.formState))
-            }
+        submit: get => () => {
+          if (option?.onSubmit) {
+            option.onSubmit(get(_s1.formState))
           }
+        },
+        clear: get => () => {
+          const s1 = get(_s1)
+          s1.isDirty = false
+          s1.formState = option?.initState ?? ({} as T)
         },
       },
       {
@@ -64,16 +67,18 @@ export function useProxyForm<T extends {}>(
     return _s2
   }, [option])
 
-  return state as IUseFormReturnEX<T>
+  return state as IUseFormReturn<T>
 }
 
 //register factory
 function registerFactory<T extends {}>(
   props: RegisterFactoryProps<T>
 ): FormRegister<T> {
-  const { formState, errors, scheme } = props
+  const { state, scheme, showErrors } = props
+  const { formState, errors } = state
+
   return (label, options) => {
-    const state = useSnapshot(formState)
+    const snapState = useSnapshot(formState)
     const key = label as keyof T
 
     //初始化state
@@ -85,7 +90,7 @@ function registerFactory<T extends {}>(
       get value() {
         //给一个初始化值,防止uncontroll
         //@ts-ignore
-        return state[key] || ''
+        return snapState[key] || ''
       },
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
         let val: any = e.target.value
@@ -110,9 +115,10 @@ function registerFactory<T extends {}>(
         //handle error message
         const error = res.error?.details?.find(item => item.path[0] === key)
 
-        if (error) console.log(error)
+        if (error && showErrors) console.log(error)
 
         errors[key] = error?.message
+        state.isDirty = true
         //@ts-ignore
         formState[label] = val
       },
@@ -120,7 +126,8 @@ function registerFactory<T extends {}>(
   }
 }
 
-export function useFormContext<T>() {
+export function useFormContext<T>(): IUseFormReturn<T> {
   //@ts-ignore
-  return useContext<IUseFormReturn<T>>(formContext)
+  const f = useContext<IUseFormReturn<T>>(formContext)
+  return useSnapshot(f) as IUseFormReturn<T>
 }
