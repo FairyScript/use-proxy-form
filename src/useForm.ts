@@ -1,6 +1,7 @@
 import { useCreation } from 'ahooks'
 import Joi from 'joi'
-import { proxy, useSnapshot } from 'valtio'
+import { proxy, ref, useSnapshot } from 'valtio'
+import { derive, proxyWithComputed } from 'valtio/utils'
 import { createContext, useContext } from 'react'
 import {
   FormRegister,
@@ -20,39 +21,50 @@ export function useProxyForm<T extends {}>(
   //WARN: 鉴于obj一定不会是旧的,有可能会导致错误的重新渲染.
   //有时间调查一下,是否可以改进
   const option = useCreation(() => options, [options])
-  //定义Proxy
-  const state = useCreation(
-    () => proxy<T>(options?.initState ?? ({} as T)),
-    [option]
-  )
-  const errors = useCreation(() => proxy<IFormErrors<T>>({}), [])
   const scheme = useCreation(
     () => options?.validateScheme ?? Joi.object(),
     [option]
   )
-
-  const result = useCreation(
-    () => ({
-      formState: state,
-      errors: errors,
-      register: registerFactory({
-        formState: state,
-        errors: errors,
-        scheme: scheme,
-      }),
-      FormContext: formContext as unknown as React.Context<IUseFormReturn<T>>,
-      isValid: Object.keys(errors).length === 0,
-      //submit
-      submit: () => {
-        if (options?.onSubmit) {
-          options.onSubmit(state)
-        }
+  //定义Proxy
+  const state = useCreation(() => {
+    const _s1 = proxyWithComputed(
+      {
+        formState: options?.initState ?? ({} as T),
+        errors: {},
+        FormContext: ref(formContext) as unknown as React.Context<
+          IUseFormReturn<T>
+        >,
       },
-    }),
-    [option]
-  ) as IUseFormReturnEX<T>
+      {
+        isValid: snap => Object.keys(snap.errors).length === 0,
+      }
+    )
 
-  return result
+    const _s2 = derive(
+      {
+        register: get =>
+          registerFactory<T>({
+            formState: get(_s1.formState),
+            errors: get(_s1.errors),
+            scheme,
+          }),
+        submit: get => {
+          return () => {
+            if (option?.onSubmit) {
+              option.onSubmit(get(_s1.formState))
+            }
+          }
+        },
+      },
+      {
+        proxy: _s1,
+      }
+    )
+
+    return _s2
+  }, [option])
+
+  return state as IUseFormReturnEX<T>
 }
 
 //register factory
