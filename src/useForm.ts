@@ -35,13 +35,14 @@ export function useProxyForm<T extends {}>(
         isDirty: false,
       },
       {
-        isValid: snap => Object.values(snap.errors).filter(Boolean).length === 0,
+        isValid: snap =>
+          Object.values(snap.errors).filter(Boolean).length === 0,
       }
     )
 
     const _s2 = derive(
       {
-        register: get =>
+        register: () =>
           registerFactory<T>({
             state: _s1,
             scheme,
